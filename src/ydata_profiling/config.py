@@ -169,6 +169,7 @@ class Plot(BaseModel):
     missing: MissingPlot = MissingPlot()
     image_format: ImageType = ImageType.svg
     correlation: CorrelationPlot = CorrelationPlot()
+    word_cloud_font: str = None
     dpi: int = 800  # PNG dpi
     histogram: Histogram = Histogram()
     scatter_threshold: int = 1000

@@ -1,5 +1,6 @@
 """Plot functions for the profiling report."""
 import copy
+from functools import lru_cache
 from typing import Any, Callable, List, Optional, Tuple, Union
 
 import matplotlib
@@ -15,6 +16,8 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from typeguard import typechecked
 from wordcloud import WordCloud
+from bidi.algorithm import get_display
+import arabic_reshaper
 
 from ydata_profiling.config import Settings
 from ydata_profiling.utils.common import convert_timestamp_to_datetime
@@ -25,17 +28,24 @@ from ydata_profiling.visualisation.utils import plot_360_n0sc0pe
 def format_fn(tick_val: int, tick_pos: Any) -> str:
     return convert_timestamp_to_datetime(tick_val).strftime("%Y-%m-%d %H:%M:%S")
 
+@lru_cache
+def get_arabic_format(txt):
+    return get_display(arabic_reshaper.reshape(txt))
 
 def _plot_word_cloud(
     series: Union[pd.Series, List[pd.Series]],
+    config: Settings,
     figsize: tuple = (6, 4),
 ) -> plt.Figure:
     if not isinstance(series, list):
         series = [series]
     plot = plt.figure(figsize=figsize)
     for i, series_data in enumerate(series):
-        word_dict = series_data.to_dict()
+        word_tuple = sorted(map(tuple, series_data.to_dict().items()), key= lambda x: x[1], reverse=True)[:150]
+        word_dict = {get_arabic_format(k):v for k, v in word_tuple}
+            
         wordcloud = WordCloud(
+            font_path= config.plot.word_cloud_font,
             background_color="white", random_state=123, width=300, height=200, scale=2
         ).generate_from_frequencies(word_dict)
 
@@ -124,7 +134,7 @@ def _plot_histogram(
 
 @manage_matplotlib_context()
 def plot_word_cloud(config: Settings, word_counts: pd.Series) -> str:
-    _plot_word_cloud(series=word_counts)
+    _plot_word_cloud(series=word_counts, config=config)
     return plot_360_n0sc0pe(config)
 
 
@@ -929,6 +939,7 @@ def missing_bar(
     Returns:
         The plot axis.
     """
+    notnull_counts.index = list(map(get_arabic_format, notnull_counts.index.to_list()))
     percentage = notnull_counts / nrows
 
     if len(notnull_counts) <= 50:
